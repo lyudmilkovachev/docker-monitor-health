@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 #
-# Usage:  ./nonitor.sh <config file>
+# Usage:  ./monitor.sh <config file>
 
-set -x
 
 config=$1
 
-[ "$config" ] || exit 1
 
-. ${config}
+precheck(){
+  if [ "$2" == "" ]; then
+	echo "ERROR: $1 $2 does not exist!"
+	exit 1
+  fi
 
-function healthcheck() {
+}
+
+healthcheck() {
   #Check if container is running
-  state=$(docker inspect --format='{{json .State}}' docker-weblate_weblate_1 | jq -r .Status -)
+  state=$(docker inspect --format='{{json .State}}' ${1} | jq -r .Status -)
   if [ "${state}" == "exited" ]; then
     echo "unhealthy"
     exit 1
@@ -21,7 +25,7 @@ function healthcheck() {
   fi
 }
 
-function restart() {
+restart() {
   cd $directory
   if [ -f docker-compose.yml ]; then
     # The best is to restart all orchestration
@@ -34,6 +38,15 @@ function restart() {
   fi
 }
 
+precheck Config $config
+
+. ${config}
+
+precheck Directory $directory
+
+precheck Watched $watched
+
+# Main
 for x in ${watched}; do
    if [ "$(healthcheck $x)" == "unhealthy" ]; then
       restart $x
